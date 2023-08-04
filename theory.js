@@ -403,6 +403,9 @@ var postPublish = () =>
     x = x0;
     lyapunovExpSum = 0;
     lyapunovExp = getLyapunovExp();
+
+    theory.invalidateSecondaryEquation();
+    theory.invalidateTertiaryEquation();
 }
 
 var getInternalState = () => JSON.stringify
