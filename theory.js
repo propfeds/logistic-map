@@ -33,7 +33,7 @@ const locStrings =
 {
     en:
     {
-        lyapunov: 'Lyapunov exponent',
+        lyapunov: 'the Lyapunov exponent',
         reseed: 'Reseeds the population',
         reset: 'Refund {0}',
         resetrInfo: 'Refunds all levels of {0}',
@@ -257,7 +257,7 @@ var tick = (elapsedTime, multiplier) =>
     while(time >= cooldown)
     {
         ++turns;
-        if(turns >= autoSeed)
+        if(turns === autoSeed + 1)
             reseed.buy(1);
         else
         {
@@ -338,7 +338,7 @@ let createAutoSeedMenu = () =>
         onClicked: () =>
         {
             Sound.playClick();
-            if(autoSeed > 0)
+            if(autoSeed > -1)
                 tmpEntry.text = (autoSeed - 1).toString();
         }
     });
@@ -379,7 +379,7 @@ let createAutoSeedMenu = () =>
                     // horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER,
                     text: Localization.format(getLoc('autoSeedLabel'),
-                    Utils.getMath('t>='))
+                    Utils.getMath('t='))
                 }),
                 tmpGrid
             ]
