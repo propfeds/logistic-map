@@ -102,7 +102,7 @@ var getPublicationMultiplierFormula = (symbol) =>
 `{${symbol}}^{${pubExp.toFixed(1)}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
-const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e12]);
+const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e9]);
 const milestoneCost = new CustomCost((level) =>
 {
     if(level == 0) return BigNumber.from(25 * tauRate);
