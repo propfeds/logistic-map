@@ -95,11 +95,11 @@ const getr = (level) => level >= 37 ? 4 :
 (level >= 7 ? 2 + (level-7)/10 :
 (level >= 2 ? 1 + (level-2)/5 : level/2)));
 
-const tauRate = 1;
-const pubExp = 0.18;
+const tauRate = 1 / 5;
+const pubExp = 0.18 * 5;
 var getPublicationMultiplier = (tau) => tau.pow(pubExp);
 var getPublicationMultiplierFormula = (symbol) =>
-`{${symbol}}^{${pubExp}}`;
+`{${symbol}}^{${pubExp.toFixed(1)}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e12]);
@@ -240,7 +240,7 @@ var init = () =>
         }
     }
 
-    theory.secondaryEquationScale = 1.1;
+    // theory.secondaryEquationScale = 1.1;
 }
 
 // let updateAvailability = () =>
@@ -284,8 +284,8 @@ var tick = (elapsedTime, multiplier) =>
 
 var getPrimaryEquation = () =>
 {
-    let xStr = `x_0=${x0}\\\\x_{i+1}\\leftarrow ${lyapunovMs.level ? 'f(x_i)=' :
-    ''}rx_i(1-x_{i})`;
+    let xStr = `x_0=${x0}\\\\x_{i+1}\\leftarrow rx_i(1-x_{i})
+    ${lyapunovMs.level ? '=f(x_i)' : ''}`;
     let lStr;
     if(lyapunovMs.level)
     {
