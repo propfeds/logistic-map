@@ -83,7 +83,7 @@ const xExpMaxLevel = 40;
 const xExpCost = new ExponentialCost(100, 9);
 
 const rMaxLevel = 37;
-const rCost = new CompositeCost(3, new ExponentialCost(1e4, Math.log2(1e4)),
+const rCost = new CompositeCost(3, new ExponentialCost(1e3, Math.log2(1e3)),
 new CompositeCost(4, new ExponentialCost(1e20, Math.log2(1e5)),
 new CompositeCost(10, new ExponentialCost(1e50, Math.log2(1e6)),
 new CompositeCost(8, new ExponentialCost(1e150, Math.log2(10 ** 7.5)),
@@ -102,7 +102,7 @@ var getPublicationMultiplierFormula = (symbol) =>
 `{${symbol}}^{${pubExp.toFixed(1)}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
-const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e9]);
+const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e15]);
 const milestoneCost = new CustomCost((level) =>
 {
     if(level == 0) return BigNumber.from(25 * tauRate);
