@@ -70,7 +70,7 @@ let time = 0;
 let x = x0;
 let lyapunovExpSum = 0;
 let lyapunovExp = getLyapunovExp();
-let autoSeed = 0;
+let autoSeed = -1;
 
 const c1Cost = new FirstFreeCost(new ExponentialCost(10, 0.5));
 const getc1 = (level) => Utils.getStepwisePowerSum(level, 2, 9, 1);
