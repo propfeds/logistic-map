@@ -63,17 +63,20 @@ let getLoc = (name, lang = menuLang) =>
 
 const x0 = 0.25;
 const cooldown = 12;
-let getLyapunovExp = () => turns ? lyapunovExpSum / turns : 0;
+let getLyapunovExp = (sum, t) => t ? sum / t : 0;
 
 let turns = 0;
 let time = 0;
 let x = x0;
 let lyapunovExpSum = 0;
-let lyapunovExp = getLyapunovExp();
+let lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
 let autoSeed = -1;
 
 const c1Cost = new FirstFreeCost(new ExponentialCost(10, 0.5));
 const getc1 = (level) => Utils.getStepwisePowerSum(level, 2, 9, 1);
+const c1ExpMaxLevel = 3;
+const c1ExpInc = 0.03;
+const getc1Exp = (level) => 1 + c1ExpInc * level;
 
 const c2Cost = new ExponentialCost(100 * Math.sqrt(10), 0.5 * 4);
 const c2Base = BigNumber.TWO;
@@ -81,12 +84,12 @@ const getc2 = (level) => c2Base.pow(level);
 
 const xExpMaxLevel = 40;
 const xExpCost = new ExponentialCost(100, 9);
-let getxTermExp = () => 
+let getxTermExp = (xLv, lyaLv) =>
 {
-    let l = lyapunovMs.level ? 1 + lyapunovExp : 0;
-    return 1 + xExp.level + l;
+    let l = lyaLv ? 1 + lyapunovExp : 0;
+    return 1 + xLv + l;
 };
-let getxTermExpNoLambda = () => 1 + xExp.level + lyapunovMs.level;
+let getxTermExpNoLambda = (xLv, lyaLv) => 1 + xLv + lyaLv;
 
 const rMaxLevel = 37;
 const rCost = new CompositeCost(3, new ExponentialCost(1e3, Math.log2(1e3)),
@@ -111,14 +114,26 @@ let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e15]);
 const milestoneCost = new CustomCost((level) =>
 {
-    if(level == 0) return BigNumber.from(25 * tauRate);
+    switch(level)
+    {
+        case 0: return BigNumber.from(20 * tauRate);
+        case 1: return BigNumber.from(40 * tauRate);
+        case 2: return BigNumber.from(60 * tauRate);
+        case 3: return BigNumber.from(80 * tauRate);
+        case 4: return BigNumber.from(100 * tauRate);
+        case 5: return BigNumber.from(120 * tauRate);
+        case 6: return BigNumber.from(140 * tauRate);
+        case 7: return BigNumber.from(160 * tauRate);
+        case 8: return BigNumber.from(180 * tauRate);
+        case 9: return BigNumber.from(200 * tauRate);
+    }
     return BigNumber.from(-1);
 });
 
 var reseed;
 var c1, c2, xExp, r;
 var autoPerma, resetr;
-var lyapunovMs;
+var lyapunovMs, c1ExpMs;
 
 var currency;
 
@@ -138,7 +153,7 @@ var init = () =>
             time = 0;
             x = x0;
             lyapunovExpSum = 0;
-            lyapunovExp = getLyapunovExp();
+            lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
 
             theory.invalidateTertiaryEquation();
         }
@@ -149,10 +164,18 @@ var init = () =>
     */
     {
         let getValueStr = (level) => `c_1=${getc1(level).toString(0)}`;
+        let getExpStr = (level) =>
+        {
+            if(c1ExpMs.level)
+                return `c_1^{${getc1Exp(c1ExpMs.level)}}=
+                ${getc1(level).pow(getc1Exp(c1ExpMs.level))}`;
+
+            return getValueStr(level);
+        }
         c1 = theory.createUpgrade(1, currency, c1Cost);
         c1.getDescription = (_) => Utils.getMath(getValueStr(c1.level));
-        c1.getInfo = (amount) => Utils.getMathTo(getValueStr(c1.level),
-        getValueStr(c1.level + amount));
+        c1.getInfo = (amount) => Utils.getMathTo(getExpStr(c1.level),
+        getExpStr(c1.level + amount));
     }
     /* c2
     From 1 to 2 to 4.
@@ -246,6 +269,18 @@ var init = () =>
         }
     }
 
+    /* c1 exponent
+    Typical.
+    */
+    {
+        c1ExpMs = theory.createMilestoneUpgrade(1, c1ExpMaxLevel);
+        c1ExpMs.description = Localization.getUpgradeIncCustomExpDesc('c_1',
+        c1ExpInc);
+        c1ExpMs.info = Localization.getUpgradeIncCustomExpInfo('c_1', c1ExpInc);
+        c1ExpMs.boughtOrRefunded = (_) => theory.invalidateSecondaryEquation();
+        c1ExpMs.maxLevel = c1ExpMaxLevel;
+    }
+
     // theory.secondaryEquationScale = 1.1;
 }
 
@@ -271,7 +306,7 @@ var tick = (elapsedTime, multiplier) =>
 
             let rTerm = getr(r.level);
             lyapunovExpSum += Math.log(Math.abs(rTerm*(1-2*x)));
-            lyapunovExp = getLyapunovExp();
+            lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
             x = rTerm * x * (1 - x);
         }
         theory.invalidateTertiaryEquation();
@@ -279,9 +314,9 @@ var tick = (elapsedTime, multiplier) =>
 
     let dt = BigNumber.from(elapsedTime * multiplier);
     // let c1Exp = lyapunovMs.level ? 1.5 + lyapunovExp : 1;
-    let c1Term = getc1(c1.level);
+    let c1Term = getc1(c1.level).pow(getc1Exp(c1ExpMs.level));
     let c2Term = getc2(c2.level);
-    let xTermExp = getxTermExp();
+    let xTermExp = getxTermExp(xExp.level, lyapunovMs.level);
     let xTerm = lyapunovMs.level && xTermExp === -Infinity ? BigNumber.ZERO :
     BigNumber.from(1 + x).pow(xTermExp);
 
@@ -296,7 +331,7 @@ var getPrimaryEquation = () =>
     let lStr;
     if(lyapunovMs.level)
     {
-        lStr = `\\\\\\lambda = \\displaystyle\\frac{1}{t}\\sum_{i=0}^{t-1}\\ln|f'(x_i)|`;
+        lStr = `\\\\\\lambda = \\frac{1}{t}\\sum_{i=0}^{t-1}\\ln|f'(x_i)|`;
         theory.primaryEquationHeight = 87;
         theory.primaryEquationScale = 0.92;
     }
@@ -311,9 +346,11 @@ var getPrimaryEquation = () =>
 
 var getSecondaryEquation = () =>
 {
-    let xTermExp = getxTermExpNoLambda();
-    let rhoStr = `\\dot{\\rho}=c_1c_2(1+x_t)${xTermExp !== 1 ?
-    `^{${xTermExp}${lyapunovMs.level ? '+\\lambda' : ''}}` : ''}`;
+    let xTermExp = getxTermExpNoLambda(xExp.level, lyapunovMs.level);
+    let rhoStr = `\\dot{\\rho}=
+    c_1${c1ExpMs.level ? `^{${getc1Exp(c1ExpMs.level)}}` : ''}c_2
+    (1+x_t)${xTermExp !== 1 ? `^{${xTermExp}
+    ${lyapunovMs.level ? '+\\lambda' : ''}}` : ''}`;
     let tauStr = `,&${theory.latexSymbol}=\\max{\\rho}^{${tauRate}}`;
     return `\\begin{matrix}${rhoStr}${tauStr}\\end{matrix}`;
 }
@@ -410,7 +447,7 @@ var postPublish = () =>
     time = 0;
     x = x0;
     lyapunovExpSum = 0;
-    lyapunovExp = getLyapunovExp();
+    lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
 
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
