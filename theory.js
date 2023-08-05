@@ -41,7 +41,8 @@ const locStrings =
         pubTime: 'Time: {0}',
         lyapunov: 'the Lyapunov exponent',
         reseed: 'Reseeds the population',
-        reset: 'Refund {0}',
+        reset: 'Refund {0} ({1})',
+        max: 'max',
         resetrInfo: 'Refunds all levels of {0}',
         autoSeed: 'Auto-reseeder',
         autoSeedInfo: `Automatically reseeds when {0} reaches a specified
@@ -85,7 +86,7 @@ const c1ExpMaxLevel = 3;
 const c1ExpInc = 0.03;
 const getc1Exp = (level) => 1 + c1ExpInc * level;
 
-const c2Cost = new ExponentialCost(100 * Math.sqrt(10), 0.5 * 4);
+const c2Cost = new ExponentialCost(50 * Math.sqrt(10), 0.5 * 4);
 const c2Base = BigNumber.TWO;
 const getc2 = (level) => c2Base.pow(level);
 
@@ -98,18 +99,26 @@ let getxTermExp = (xLv, lyaLv) =>
 };
 let getxTermExpNoLambda = (xLv, lyaLv) => 1 + xLv + lyaLv;
 
-const rMaxLevel = 37;
-const rCost = new CompositeCost(3, new ExponentialCost(1e3, Math.log2(1e3)),
+const rMaxLevel = 45;
+const rCost = new CompositeCost(5, new ExponentialCost(1e2, Math.log2(1e2)),
 new CompositeCost(4, new ExponentialCost(1e20, Math.log2(1e5)),
 new CompositeCost(10, new ExponentialCost(1e50, Math.log2(1e6)),
-new CompositeCost(8, new ExponentialCost(1e150, Math.log2(10 ** 7.5)),
-new CompositeCost(8, new ExponentialCost(1e225, Math.log2(1e9)),
-new CompositeCost(4, new ExponentialCost(1e300, Math.log2(1e15)),
-new ConstantCost(BigNumber.from('1e360'))))))));
-const getr = (level) => level >= 37 ? 4 :
-(level >= 17 ? 3 + (level-17)/20 :
-(level >= 7 ? 2 + (level-7)/10 :
-(level >= 2 ? 1 + (level-2)/5 : level/2)));
+new CompositeCost(8, new ExponentialCost(1e125, Math.log2(10 ** 7.5)),
+new CompositeCost(8, new ExponentialCost(1e200, Math.log2(1e9)),
+new CompositeCost(9, new ExponentialCost(1e280, Math.log2(1e10)),
+new ConstantCost(BigNumber.from('1e400'))))))));
+const getr = (level) => level >= 45 ? 4 :
+(level >= 35 ? 3.8 + (level-35)/50 :
+(level >= 19 ? 3 + (level-19)/20 :
+(level >= 9 ? 2 + (level-9)/10 :
+(level >= 4 ? 1 + (level-4)/5 : level/4))));
+/*
+0, 0.25 (4)
+1, 1.2,... (5)
+2, 2.1,... (10)
+3, 3.05,... (16)
+3.8, 3.82,... (10)
+*/
 
 const tauRate = 1 / 5;
 const pubExp = 0.18 * 5;
@@ -118,7 +127,7 @@ var getPublicationMultiplierFormula = (symbol) =>
 `{${symbol}}^{${pubExp.toFixed(1)}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
-const permaCosts = bigNumArray([1e6, 1e15, 1e21, 1e15]);
+const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15]);
 const milestoneCost = new CustomCost((level) =>
 {
     switch(level)
@@ -138,8 +147,8 @@ const milestoneCost = new CustomCost((level) =>
 });
 
 var reseed;
-var c1, c2, xExp, r;
-var autoPerma, resetr;
+var c1, c2, xExp, r, resetr;
+var autoPerma;
 var lyapunovMs, c1ExpMs;
 
 var currency;
@@ -219,6 +228,22 @@ var init = () =>
         getValueStr(r.level + amount));
         r.maxLevel = rMaxLevel;
     }
+    /* Reset r
+    For when you're stuck.
+    */
+    {
+        resetr = theory.createUpgrade(10, currency, new FreeCost);
+        resetr.getDescription = (_) => Localization.format(getLoc('reset'),
+        Utils.getMath('r'), theory.buyAmountUpgrades === -1 ? getLoc('max'):
+        `x${theory.buyAmountUpgrades}`);
+        resetr.info = Localization.format(getLoc('resetrInfo'),
+        Utils.getMath('r'));
+        resetr.bought = (_) =>
+        {
+            r.refund(theory.buyAmountUpgrades);
+        }
+        resetr.isAutoBuyable = false;
+    }
 
     theory.createPublicationUpgrade(0, currency, permaCosts[0]);
     theory.createBuyAllUpgrade(1, currency, permaCosts[1]);
@@ -241,20 +266,6 @@ var init = () =>
                 let menu = createAutoSeedMenu();
                 menu.show();
             }
-        }
-    }
-    /* Reset r
-    For when you're stuck.
-    */
-    {
-        resetr = theory.createPermanentUpgrade(10, currency, new FreeCost);
-        resetr.description = Localization.format(getLoc('reset'),
-        Utils.getMath('r'));
-        resetr.info = Localization.format(getLoc('resetrInfo'),
-        Utils.getMath('r'));
-        resetr.bought = (_) =>
-        {
-            r.refund(r.level);
         }
     }
 
@@ -387,7 +398,7 @@ var getEquationOverlay = () =>
                     }
                     else
                     {
-                        timeString = `${minutes.toString()}:${
+                        timeString = `${minutes.toString().padStart(2, '0')}:${
                         seconds.toFixed(1).padStart(4, '0')}`;
                     }
                     return Localization.format(getLoc('pubTime'),
@@ -418,7 +429,7 @@ var getEquationOverlay = () =>
                     }
                     else
                     {
-                        timeString = `${minutes.toString()}:${
+                        timeString = `${minutes.toString().padStart(2, '0')}:${
                         seconds.toFixed(1).padStart(4, '0')}`;
                     }
                     return Localization.format(getLoc('pubTime'),
