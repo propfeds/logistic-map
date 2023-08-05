@@ -37,7 +37,7 @@ const locStrings =
 {
     en:
     {
-        wip: '{0} (WIP)',
+        wip: '{0} (Work in Progress)',
         pubTime: 'Time: {0}',
         lyapunov: 'the Lyapunov exponent',
         reseed: 'Reseeds the population',
@@ -79,10 +79,11 @@ let x = x0;
 let lyapunovExpSum = 0;
 let lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
 let autoSeed = -1;
+let autoSeedActive = false;
 
 const c1Cost = new FirstFreeCost(new ExponentialCost(10, 0.5));
 const getc1 = (level) => Utils.getStepwisePowerSum(level, 2, 9, 1);
-const c1ExpMaxLevel = 3;
+const c1ExpMaxLevel = 4;
 const c1ExpInc = 0.03;
 const getc1Exp = (level) => 1 + c1ExpInc * level;
 
@@ -135,13 +136,8 @@ const milestoneCost = new CustomCost((level) =>
         case 0: return BigNumber.from(20 * tauRate);
         case 1: return BigNumber.from(40 * tauRate);
         case 2: return BigNumber.from(60 * tauRate);
-        case 3: return BigNumber.from(80 * tauRate);
-        case 4: return BigNumber.from(100 * tauRate);
-        case 5: return BigNumber.from(120 * tauRate);
-        case 6: return BigNumber.from(140 * tauRate);
-        case 7: return BigNumber.from(160 * tauRate);
-        case 8: return BigNumber.from(180 * tauRate);
-        case 9: return BigNumber.from(200 * tauRate);
+        case 3: return BigNumber.from(120 * tauRate);
+        case 4: return BigNumber.from(180 * tauRate);
     }
     return BigNumber.from(-1);
 });
@@ -219,6 +215,9 @@ var init = () =>
     }
     /* r
     Seamless transition.
+
+    Reset r
+    For when you're stuck.
     */
     {
         let getValueStr = (level) => `r=${getr(level)}`;
@@ -227,19 +226,20 @@ var init = () =>
         r.getInfo = (amount) => Utils.getMathTo(getValueStr(r.level),
         getValueStr(r.level + amount));
         r.maxLevel = rMaxLevel;
-    }
-    /* Reset r
-    For when you're stuck.
-    */
-    {
+
         resetr = theory.createUpgrade(10, currency, new FreeCost);
         resetr.getDescription = (_) => Localization.format(getLoc('reset'),
         Utils.getMath('r'), theory.buyAmountUpgrades === -1 ? getLoc('max'):
         `x${theory.buyAmountUpgrades}`);
-        resetr.info = Localization.format(getLoc('resetrInfo'),
-        Utils.getMath('r'));
+        resetr.getInfo = (amount) => Utils.getMathTo(getValueStr(r.level),
+        getValueStr(r.level - amount));
         resetr.bought = (_) =>
         {
+            if(resetr.isAutoBuyable)
+            {
+                resetr.isAutoBuyable = false;
+                return;
+            }
             r.refund(theory.buyAmountUpgrades);
         }
         resetr.isAutoBuyable = false;
@@ -316,7 +316,7 @@ var tick = (elapsedTime, multiplier) =>
     while(time >= cooldown)
     {
         ++turns;
-        if(turns === autoSeed + 1)
+        if(autoSeedActive && turns === autoSeed + 1)
             reseed.buy(1);
         else
         {
@@ -335,9 +335,8 @@ var tick = (elapsedTime, multiplier) =>
     // let c1Exp = lyapunovMs.level ? 1.5 + lyapunovExp : 1;
     let c1Term = getc1(c1.level).pow(getc1Exp(c1ExpMs.level));
     let c2Term = getc2(c2.level);
-    let xTermExp = getxTermExp(xExp.level, lyapunovMs.level);
-    let xTerm = lyapunovMs.level && xTermExp === -Infinity ? BigNumber.ZERO :
-    BigNumber.from(1 + x).pow(xTermExp);
+    let xTermBase = 1 + x + (lyapunovMs.level ? Math.exp(lyapunovExp) : 0);
+    let xTerm = BigNumber.from(xTermBase).pow(1 + xExp.level);
 
     currency.value += dt * c1Term * c2Term * xTerm *
     theory.publicationMultiplier;
@@ -465,11 +464,10 @@ var getPrimaryEquation = () =>
 
 var getSecondaryEquation = () =>
 {
-    let xTermExp = getxTermExpNoLambda(xExp.level, lyapunovMs.level);
     let rhoStr = `\\dot{\\rho}=
     c_1${c1ExpMs.level ? `^{${getc1Exp(c1ExpMs.level)}}` : ''}c_2
-    (1+x_t)${xTermExp !== 1 ? `^{${xTermExp}
-    ${lyapunovMs.level ? '+\\lambda' : ''}}` : ''}`;
+    (1${lyapunovMs.level ? '+e^\\lambda' : ''}+x_t)
+    ${xExp.level ? `^{${1 + xExp.level}}` : ''}`;
     let tauStr = `,&${theory.latexSymbol}=\\max{\\rho}^{${tauRate}}`;
     return `\\begin{matrix}${rhoStr}${tauStr}\\end{matrix}`;
 }
@@ -502,7 +500,7 @@ let createAutoSeedMenu = () =>
         onClicked: () =>
         {
             Sound.playClick();
-            if(autoSeed > -1)
+            if(autoSeed > 0)
                 tmpEntry.text = (autoSeed - 1).toString();
         }
     });
@@ -527,6 +525,22 @@ let createAutoSeedMenu = () =>
             tmpPlusBtn
         ]
     });
+    let ASSwitch = ui.createSwitch
+    ({
+        isToggled: autoSeedActive,
+        column: 2,
+        // horizontalOptions: LayoutOptions.END,
+        onTouched: (e) =>
+        {
+            if(e.type == TouchType.SHORTPRESS_RELEASED ||
+            e.type == TouchType.LONGPRESS_RELEASED)
+            {
+                Sound.playClick();
+                autoSeedActive = !autoSeedActive;
+                ASSwitch.isToggled = autoSeedActive;
+            }
+        }
+    });
 
     let menu = ui.createPopup
     ({
@@ -534,7 +548,7 @@ let createAutoSeedMenu = () =>
         title: getLoc('autoSeed'),
         content: ui.createGrid
         ({
-            columnDefinitions: ['1*', '1*'],
+            columnDefinitions: ['3*', '4*', '1*'],
             children:
             [
                 ui.createLatexLabel
@@ -545,7 +559,8 @@ let createAutoSeedMenu = () =>
                     text: Localization.format(getLoc('autoSeedLabel'),
                     Utils.getMath('t='))
                 }),
-                tmpGrid
+                tmpGrid,
+                ASSwitch
             ]
         })
     });
@@ -582,7 +597,8 @@ var getInternalState = () => JSON.stringify
     x,
     lyapunovExpSum,
     lyapunovExp,
-    autoSeed
+    autoSeed,
+    autoSeedActive
 })
 
 var setInternalState = (stateStr) =>
@@ -596,6 +612,7 @@ var setInternalState = (stateStr) =>
     lyapunovExpSum = state.lyapunovExpSum ?? lyapunovExpSum;
     lyapunovExp = state.lyapunovExp ?? lyapunovExp;
     autoSeed = state.autoSeed ?? autoSeed;
+    autoSeedActive = state.autoSeedActive ?? autoSeedActive;
 
     theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
