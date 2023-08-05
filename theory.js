@@ -81,6 +81,12 @@ const getc2 = (level) => c2Base.pow(level);
 
 const xExpMaxLevel = 40;
 const xExpCost = new ExponentialCost(100, 9);
+let getxTermExp = () => 
+{
+    let l = lyapunovMs.level ? 1 + lyapunovExp : 0;
+    return 1 + xExp.level + l;
+};
+let getxTermExpNoLambda = () => 1 + xExp.level + lyapunovMs.level;
 
 const rMaxLevel = 37;
 const rCost = new CompositeCost(3, new ExponentialCost(1e3, Math.log2(1e3)),
@@ -272,11 +278,12 @@ var tick = (elapsedTime, multiplier) =>
     }
 
     let dt = BigNumber.from(elapsedTime * multiplier);
-    let c1Exp = lyapunovMs.level ? 2 + lyapunovExp : 1;
-    let c1Term = lyapunovMs.level && c1Exp === -Infinity ?
-    BigNumber.ZERO : getc1(c1.level).pow(c1Exp);
+    // let c1Exp = lyapunovMs.level ? 1.5 + lyapunovExp : 1;
+    let c1Term = getc1(c1.level);
     let c2Term = getc2(c2.level);
-    let xTerm = BigNumber.from(1 + x).pow(1 + xExp.level);
+    let xTermExp = getxTermExp();
+    let xTerm = lyapunovMs.level && xTermExp === -Infinity ? BigNumber.ZERO :
+    BigNumber.from(1 + x).pow(xTermExp);
 
     currency.value += dt * c1Term * c2Term * xTerm *
     theory.publicationMultiplier;
@@ -304,8 +311,9 @@ var getPrimaryEquation = () =>
 
 var getSecondaryEquation = () =>
 {
-    let rhoStr = `\\dot{\\rho}=c_1${lyapunovMs.level ? '^{2+\\lambda}' : ''}c_2
-    (1+x_t)${xExp.level ? `^{${1 + xExp.level}}` : ''}`;
+    let xTermExp = getxTermExpNoLambda();
+    let rhoStr = `\\dot{\\rho}=c_1c_2(1+x_t)${xTermExp !== 1 ?
+    `^{${xTermExp}${lyapunovMs.level ? '+\\lambda' : ''}}` : ''}`;
     let tauStr = `,&${theory.latexSymbol}=\\max{\\rho}^{${tauRate}}`;
     return `\\begin{matrix}${rhoStr}${tauStr}\\end{matrix}`;
 }
