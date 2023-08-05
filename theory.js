@@ -6,6 +6,7 @@ import { ui } from '../api/ui/UI';
 import { Utils } from '../api/Utils';
 import { StackOrientation } from '../api/ui/properties/StackOrientation';
 import { TextAlignment } from '../api/ui/properties/TextAlignment';
+import { LayoutOptions } from '../api/ui/properties/LayoutOptions';
 
 var id = 'logistic_map';
 var getName = (language) =>
@@ -27,12 +28,17 @@ var getDescription = (language) =>
     return descs[language] ?? descs.en;
 }
 var authors = 'propfeds';
-var version = 0;
+var version = 0.1;
+
+const versionName = 'v0.1';
+const workInProgress = true;
 
 const locStrings =
 {
     en:
     {
+        wip: '{0} (WIP)',
+        pubTime: 'Time: {0}',
         lyapunov: 'the Lyapunov exponent',
         reseed: 'Reseeds the population',
         reset: 'Refund {0}',
@@ -65,6 +71,7 @@ const x0 = 0.25;
 const cooldown = 12;
 let getLyapunovExp = (sum, t) => t ? sum / t : 0;
 
+let pubTime = 0;
 let turns = 0;
 let time = 0;
 let x = x0;
@@ -293,7 +300,7 @@ var tick = (elapsedTime, multiplier) =>
 {
     if(!c1.level)
         return;
-    
+
     ++time;
     while(time >= cooldown)
     {
@@ -312,6 +319,7 @@ var tick = (elapsedTime, multiplier) =>
         theory.invalidateTertiaryEquation();
     }
 
+    pubTime += elapsedTime;
     let dt = BigNumber.from(elapsedTime * multiplier);
     // let c1Exp = lyapunovMs.level ? 1.5 + lyapunovExp : 1;
     let c1Term = getc1(c1.level).pow(getc1Exp(c1ExpMs.level));
@@ -322,6 +330,106 @@ var tick = (elapsedTime, multiplier) =>
 
     currency.value += dt * c1Term * c2Term * xTerm *
     theory.publicationMultiplier;
+}
+
+var getEquationOverlay = () =>
+{
+    const unicodeLangs =
+    {
+        'zh-Hans': true,
+        'zh-Hant': true
+    };
+    let result = ui.createGrid
+    ({
+        inputTransparent: true,
+        cascadeInputTransparent: false,
+        children:
+        [
+            ui.createLabel
+            ({
+                isVisible: () => menuLang in unicodeLangs ? true : false,
+                verticalOptions: LayoutOptions.START,
+                margin: new Thickness(6, 4),
+                text: workInProgress ? Localization.format(getLoc('wip'),
+                versionName) : versionName,
+                fontSize: 11,
+                textColor: Color.TEXT_MEDIUM
+            }),
+            ui.createLatexLabel
+            ({
+                isVisible: () => !(menuLang in unicodeLangs) ? true : false,
+                verticalOptions: LayoutOptions.START,
+                margin: new Thickness(6, 4),
+                text: workInProgress ? Localization.format(getLoc('wip'),
+                versionName) : versionName,
+                fontSize: 9,
+                textColor: Color.TEXT_MEDIUM
+            }),
+            ui.createLabel
+            ({
+                isVisible: () => menuLang in unicodeLangs ? true : false,
+                horizontalOptions: LayoutOptions.END,
+                verticalOptions: LayoutOptions.START,
+                // verticalTextAlignment: TextAlignment.START,
+                margin: new Thickness(6, 4),
+                text: () =>
+                {
+                    let minutes = Math.floor(pubTime / 60);
+                    let seconds = pubTime - minutes*60;
+                    let timeString;
+                    if(minutes >= 60)
+                    {
+                        let hours = Math.floor(minutes / 60);
+                        minutes -= hours*60;
+                        timeString = `${hours}:${
+                        minutes.toString().padStart(2, '0')}:${
+                        seconds.toFixed(1).padStart(4, '0')}`;
+                    }
+                    else
+                    {
+                        timeString = `${minutes.toString()}:${
+                        seconds.toFixed(1).padStart(4, '0')}`;
+                    }
+                    return Localization.format(getLoc('pubTime'),
+                    timeString);
+                },
+                fontSize: 11,
+                textColor: Color.TEXT_MEDIUM
+            }),
+            ui.createLatexLabel
+            ({
+                isVisible: () => !(menuLang in unicodeLangs) ? true : false,
+                horizontalOptions: LayoutOptions.END,
+                verticalOptions: LayoutOptions.START,
+                // verticalTextAlignment: TextAlignment.START,
+                margin: new Thickness(6, 4),
+                text: () =>
+                {
+                    let minutes = Math.floor(pubTime / 60);
+                    let seconds = pubTime - minutes*60;
+                    let timeString;
+                    if(minutes >= 60)
+                    {
+                        let hours = Math.floor(minutes / 60);
+                        minutes -= hours*60;
+                        timeString = `${hours}:${
+                        minutes.toString().padStart(2, '0')}:${
+                        seconds.toFixed(1).padStart(4, '0')}`;
+                    }
+                    else
+                    {
+                        timeString = `${minutes.toString()}:${
+                        seconds.toFixed(1).padStart(4, '0')}`;
+                    }
+                    return Localization.format(getLoc('pubTime'),
+                    timeString);
+                },
+                fontSize: 9,
+                textColor: Color.TEXT_MEDIUM
+            })
+        ]
+    });
+    return result;
 }
 
 var getPrimaryEquation = () =>
@@ -443,6 +551,7 @@ var getCurrencyFromTau = (tau) =>
 
 var postPublish = () =>
 {
+    pubTime = 0;
     turns = 0;
     time = 0;
     x = x0;
@@ -456,6 +565,7 @@ var postPublish = () =>
 var getInternalState = () => JSON.stringify
 ({
     version,
+    pubTime,
     turns,
     time,
     x,
@@ -468,6 +578,7 @@ var setInternalState = (stateStr) =>
 {
     let state = JSON.parse(stateStr);
     let v = state.version ?? version;
+    pubTime = state.pubTime ?? pubTime;
     turns = state.turns ?? turns;
     time = state.time ?? time;
     x = state.x ?? x;
