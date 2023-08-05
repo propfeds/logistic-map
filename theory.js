@@ -272,7 +272,7 @@ var tick = (elapsedTime, multiplier) =>
     }
 
     let dt = BigNumber.from(elapsedTime * multiplier);
-    let c1Exp = lyapunovMs.level ? 1 + lyapunovExp : 1;
+    let c1Exp = lyapunovMs.level ? 2 + lyapunovExp : 1;
     let c1Term = lyapunovMs.level && c1Exp === -Infinity ?
     BigNumber.ZERO : getc1(c1.level).pow(c1Exp);
     let c2Term = getc2(c2.level);
@@ -304,7 +304,7 @@ var getPrimaryEquation = () =>
 
 var getSecondaryEquation = () =>
 {
-    let rhoStr = `\\dot{\\rho}=c_1${lyapunovMs.level ? '^{1+\\lambda}' : ''}c_2
+    let rhoStr = `\\dot{\\rho}=c_1${lyapunovMs.level ? '^{2+\\lambda}' : ''}c_2
     (1+x_t)${xExp.level ? `^{${1 + xExp.level}}` : ''}`;
     let tauStr = `,&${theory.latexSymbol}=\\max{\\rho}^{${tauRate}}`;
     return `\\begin{matrix}${rhoStr}${tauStr}\\end{matrix}`;
