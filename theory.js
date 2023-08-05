@@ -31,7 +31,7 @@ var authors = 'propfeds';
 var version = 0.1;
 
 const versionName = 'v0.1';
-const workInProgress = true;
+const workInProgress = false;
 
 const locStrings =
 {
@@ -332,10 +332,9 @@ var tick = (elapsedTime, multiplier) =>
 
     pubTime += elapsedTime;
     let dt = BigNumber.from(elapsedTime * multiplier);
-    // let c1Exp = lyapunovMs.level ? 1.5 + lyapunovExp : 1;
     let c1Term = getc1(c1.level).pow(getc1Exp(c1ExpMs.level));
     let c2Term = getc2(c2.level);
-    let xTermBase = 1 + x + (lyapunovMs.level ? Math.exp(lyapunovExp) : 0);
+    let xTermBase = 1 + x + lyapunovMs.level * Math.exp(lyapunovExp);
     let xTerm = BigNumber.from(xTermBase).pow(1 + xExp.level);
 
     currency.value += dt * c1Term * c2Term * xTerm *
