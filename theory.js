@@ -22,7 +22,7 @@ var getDescription = (language) =>
 {
     let descs =
     {
-        en: 'The growth of populations, explained in one simple function.',
+        en: 'The ebb and flow of populations in one simple function.',
     };
 
     return descs[language] ?? descs.en;
@@ -91,8 +91,12 @@ const c2Cost = new ExponentialCost(50 * Math.sqrt(10), 0.5 * 4);
 const c2Base = BigNumber.TWO;
 const getc2 = (level) => c2Base.pow(level);
 
+const c3Cost = new ExponentialCost(1e270, 0.5 * 2.6);
+const getc3 = (level) => Utils.getStepwisePowerSum(level, 2, 12, 1);
+
 const xExpMaxLevel = 40;
-const xExpCost = new ExponentialCost(100, 9);
+const xExpCost = new CompositeCost(30, new ExponentialCost(100, 9),
+new ExponentialCost(1e180, 21));
 let getxTermExp = (xLv, lyaLv) =>
 {
     let l = lyaLv ? 1 + lyapunovExp : 0;
@@ -107,7 +111,7 @@ new CompositeCost(10, new ExponentialCost(1e50, Math.log2(1e6)),
 new CompositeCost(8, new ExponentialCost(1e125, Math.log2(10 ** 7.5)),
 new CompositeCost(8, new ExponentialCost(1e200, Math.log2(1e9)),
 new CompositeCost(9, new ExponentialCost(1e280, Math.log2(1e10)),
-new ConstantCost(BigNumber.from('1e400'))))))));
+new ConstantCost(BigNumber.from('1e420'))))))));
 const getr = (level) => level >= 45 ? 4 :
 (level >= 35 ? 3.8 + (level-35)/50 :
 (level >= 19 ? 3 + (level-19)/20 :
@@ -128,23 +132,24 @@ var getPublicationMultiplierFormula = (symbol) =>
 `{${symbol}}^{${pubExp.toFixed(1)}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
-const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15]);
+const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15, 1e270]);
 const milestoneCost = new CustomCost((level) =>
 {
     switch(level)
     {
         case 0: return BigNumber.from(20 * tauRate);
         case 1: return BigNumber.from(40 * tauRate);
-        case 2: return BigNumber.from(60 * tauRate);
+        case 2: return BigNumber.from(80 * tauRate);
         case 3: return BigNumber.from(120 * tauRate);
-        case 4: return BigNumber.from(180 * tauRate);
+        case 4: return BigNumber.from(150 * tauRate);
+        case 5: return BigNumber.from(250 * tauRate);
     }
     return BigNumber.from(-1);
 });
 
 var reseed;
-var c1, c2, xExp, r, resetr;
-var autoPerma;
+var c1, c2, c3, xExp, r, resetr;
+var autoPerma, c3Perma;
 var lyapunovMs, c1ExpMs;
 
 var currency;
@@ -172,7 +177,7 @@ var init = () =>
     }
 
     /* c1
-    From 1 to 10 to 100.
+    From 1 to 10 to wtf.
     */
     {
         let getValueStr = (level) => `c_1=${getc1(level).toString(0)}`;
@@ -199,6 +204,17 @@ var init = () =>
         c2.getDescription = (_) => Utils.getMath(getExpStr(c2.level));
         c2.getInfo = (amount) => Utils.getMathTo(getValueStr(c2.level),
         getValueStr(c2.level + amount));
+    }
+    /* c3
+    From 1 to 13.
+    */
+    {
+        let getValueStr = (level) => `c_3=${getc3(level).toString(0)}`;
+        c3 = theory.createUpgrade(4, currency, c3Cost);
+        c3.getDescription = (_) => Utils.getMath(getValueStr(c3.level));
+        c3.getInfo = (amount) => Utils.getMathTo(getValueStr(c3.level),
+        getValueStr(c3.level + amount));
+        c3.isAvailable = false;
     }
     /* x exponent
     Ripped off of tempura control.
@@ -268,6 +284,21 @@ var init = () =>
             }
         }
     }
+    /* c3
+    (2, 12) stepwise.
+    */
+    {
+        c3Perma = theory.createPermanentUpgrade(4, currency,
+        new ConstantCost(permaCosts[4]));
+        c3Perma.description = Localization.getUpgradeAddTermDesc('c_3');
+        c3Perma.info = Localization.getUpgradeAddTermInfo('c_3');
+        c3Perma.boughtOrRefunded = (_) =>
+        {
+            theory.invalidateSecondaryEquation();
+            updateAvailability();
+        }
+        c3Perma.maxLevel = 1;
+    }
 
     theory.setMilestoneCost(milestoneCost);
 
@@ -302,10 +333,10 @@ var init = () =>
     // theory.secondaryEquationScale = 1.1;
 }
 
-// let updateAvailability = () =>
-// {
-//     autoMenuPerma.isAvailable = autoPerma.level > 0;
-// }
+let updateAvailability = () =>
+{
+    c3.isAvailable = c3Perma.level > 0;
+}
 
 var tick = (elapsedTime, multiplier) =>
 {
@@ -334,10 +365,11 @@ var tick = (elapsedTime, multiplier) =>
     let dt = BigNumber.from(elapsedTime * multiplier);
     let c1Term = getc1(c1.level).pow(getc1Exp(c1ExpMs.level));
     let c2Term = getc2(c2.level);
-    let xTermBase = 1 + x + lyapunovMs.level * Math.exp(lyapunovExp);
+    let c3Term = getc3(c3.level);
+    let xTermBase = x + (lyapunovMs.level ? Math.exp(lyapunovExp) : 1);
     let xTerm = BigNumber.from(xTermBase).pow(1 + xExp.level);
 
-    currency.value += dt * c1Term * c2Term * xTerm *
+    currency.value += dt * c1Term * c2Term * c3Term * xTerm *
     theory.publicationMultiplier;
 }
 
@@ -465,7 +497,7 @@ var getSecondaryEquation = () =>
 {
     let rhoStr = `\\dot{\\rho}=
     c_1${c1ExpMs.level ? `^{${getc1Exp(c1ExpMs.level)}}` : ''}c_2
-    (1${lyapunovMs.level ? '+e^\\lambda' : ''}+x_t)
+    ${c3Perma.level ? 'c_3' : ''}(${lyapunovMs.level ? 'e^\\lambda' : '1'}+x_t)
     ${xExp.level ? `^{${1 + xExp.level}}` : ''}`;
     let tauStr = `,&${theory.latexSymbol}=\\max{\\rho}^{${tauRate}}`;
     return `\\begin{matrix}${rhoStr}${tauStr}\\end{matrix}`;
@@ -616,6 +648,7 @@ var setInternalState = (stateStr) =>
     theory.invalidatePrimaryEquation();
     theory.invalidateSecondaryEquation();
     theory.invalidateTertiaryEquation();
+    updateAvailability();
     theory.clearGraph();
 }
 
@@ -625,7 +658,7 @@ let interpolate = (t) => {
     return v1 * (1 - t) + v2 * t;
 };
 
-var get2DGraphValue = () => x;
+var get2DGraphValue = () => x + 0.5;
 // {
 //     let rTerm = getr(r.level);
 //     let x1 = rTerm * x * (1 - x);
