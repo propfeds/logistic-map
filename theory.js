@@ -1,12 +1,11 @@
 import { BigNumber } from '../api/BigNumber';
-import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost, LinearCost } from '../api/Costs';
+import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
 import { Localization } from '../api/Localization';
 import { theory } from '../api/Theory';
-import { ui } from '../api/ui/UI';
 import { Utils } from '../api/Utils';
-import { StackOrientation } from '../api/ui/properties/StackOrientation';
-import { TextAlignment } from '../api/ui/properties/TextAlignment';
+import { ui } from '../api/ui/UI';
 import { LayoutOptions } from '../api/ui/properties/LayoutOptions';
+import { TextAlignment } from '../api/ui/properties/TextAlignment';
 
 var id = 'logistic_map';
 var getName = (language) =>
@@ -22,7 +21,10 @@ var getDescription = (language) =>
 {
     let descs =
     {
-        en: 'The ebb and flow of populations in one simple function.',
+        en: `The ebb and flow of populations, represented by a simple ` +
+`quadratic function.
+The variable r represents the population's reproduction rate, but as the ` +
+`population gets larger, starvation will begin to take effect.`,
     };
 
     return descs[language] ?? descs.en;
@@ -45,8 +47,8 @@ const locStrings =
         max: 'max',
         resetrInfo: 'Refunds all levels of {0}',
         autoSeed: 'Auto-reseeder',
-        autoSeedInfo: `Automatically reseeds when {0} reaches a specified
-value`,
+        autoSeedInfo: 'Automatically reseeds when {0} reaches a specified ' +
+        'value',
         autoSeedLabel: 'Reseed when: {0}'
     }
 };
@@ -78,7 +80,7 @@ let time = 0;
 let x = x0;
 let lyapunovExpSum = 0;
 let lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
-let autoSeed = -1;
+let autoSeed = 0;
 let autoSeedActive = false;
 
 const c1Cost = new FirstFreeCost(new ExponentialCost(10, 0.5));
@@ -127,9 +129,10 @@ const getr = (level) => level >= 45 ? 4 :
 
 const tauRate = 1 / 5;
 const pubExp = 0.18 * 5;
-var getPublicationMultiplier = (tau) => tau.pow(pubExp);
+const pubDiv = 2;
+var getPublicationMultiplier = (tau) => tau.pow(pubExp) / pubDiv;
 var getPublicationMultiplierFormula = (symbol) =>
-`{${symbol}}^{${pubExp.toFixed(1)}}`;
+`\\frac{{${symbol}}^{${pubExp.toFixed(1)}}}{${pubDiv}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15, 1e270]);
@@ -635,6 +638,9 @@ var getInternalState = () => JSON.stringify
 var setInternalState = (stateStr) =>
 {
     let state = JSON.parse(stateStr);
+
+    if(!stateStr)
+        return;
     let v = state.version ?? version;
     pubTime = state.pubTime ?? pubTime;
     turns = state.turns ?? turns;
@@ -658,7 +664,7 @@ let interpolate = (t) => {
     return v1 * (1 - t) + v2 * t;
 };
 
-var get2DGraphValue = () => x + 0.5;
+var get2DGraphValue = () => x;
 // {
 //     let rTerm = getr(r.level);
 //     let x1 = rTerm * x * (1 - x);
