@@ -127,8 +127,8 @@ const getr = (level) => level >= 45 ? 4 :
 3.8, 3.82,... (10)
 */
 
-const tauRate = 1 / 5;
-const pubExp = 0.18 * 5;
+const tauRate = 0.75;
+const pubExp = 0.18 / tauRate;
 const pubDiv = 2;
 var getPublicationMultiplier = (tau) => tau.pow(pubExp) / pubDiv;
 var getPublicationMultiplierFormula = (symbol) =>
