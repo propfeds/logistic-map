@@ -561,18 +561,13 @@ let createAutoSeedMenu = () =>
     });
     let ASSwitch = ui.createSwitch
     ({
-        isToggled: autoSeedActive,
         column: 2,
         // horizontalOptions: LayoutOptions.END,
-        onTouched: (e) =>
+        isToggled: autoSeedActive,
+        onToggled: () =>
         {
-            if(e.type == TouchType.SHORTPRESS_RELEASED ||
-            e.type == TouchType.LONGPRESS_RELEASED)
-            {
-                Sound.playClick();
-                autoSeedActive = !autoSeedActive;
-                ASSwitch.isToggled = autoSeedActive;
-            }
+            Sound.playClick();
+            autoSeedActive = ASSwitch.isToggled;
         }
     });
 
@@ -582,6 +577,7 @@ let createAutoSeedMenu = () =>
         title: getLoc('autoSeed'),
         content: ui.createGrid
         ({
+            opacity: () => autoSeedActive ? 1 : 0.4,
             columnDefinitions: ['3*', '4*', '1*'],
             children:
             [
