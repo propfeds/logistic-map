@@ -1,12 +1,11 @@
 import { BigNumber } from '../api/BigNumber';
-import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost, LinearCost } from '../api/Costs';
+import { CompositeCost, ExponentialCost, FirstFreeCost, FreeCost } from '../api/Costs';
 import { Localization } from '../api/Localization';
 import { theory } from '../api/Theory';
-import { ui } from '../api/ui/UI';
 import { Utils } from '../api/Utils';
-import { StackOrientation } from '../api/ui/properties/StackOrientation';
-import { TextAlignment } from '../api/ui/properties/TextAlignment';
+import { ui } from '../api/ui/UI';
 import { LayoutOptions } from '../api/ui/properties/LayoutOptions';
+import { TextAlignment } from '../api/ui/properties/TextAlignment';
 
 var id = 'logistic_map';
 var getName = (language) =>
@@ -22,15 +21,18 @@ var getDescription = (language) =>
 {
     let descs =
     {
-        en: 'The ebb and flow of populations in one simple function.',
+        en: `The ebb and flow of populations, represented by a simple ` +
+`quadratic function.
+The variable r represents the population's reproduction rate, but as the ` +
+`population gets larger, starvation will begin to take effect.`,
     };
 
     return descs[language] ?? descs.en;
 }
 var authors = 'propfeds';
-var version = 0.1;
+var version = 0.11;
 
-const versionName = 'v0.1';
+const versionName = 'v0.1.1';
 const workInProgress = false;
 
 const locStrings =
@@ -45,8 +47,8 @@ const locStrings =
         max: 'max',
         resetrInfo: 'Refunds all levels of {0}',
         autoSeed: 'Auto-reseeder',
-        autoSeedInfo: `Automatically reseeds when {0} reaches a specified
-value`,
+        autoSeedInfo: 'Automatically reseeds when {0} reaches a specified ' +
+        'value',
         autoSeedLabel: 'Reseed when: {0}'
     }
 };
@@ -68,6 +70,30 @@ let getLoc = (name, lang = menuLang) =>
     return `String missing: ${lang}.${name}`;
 }
 
+let getSmallBtnSize = (width) =>
+{
+    if(width >= 1080)
+        return 80;
+    if(width >= 720)
+        return 60;
+    if(width >= 360)
+        return 40;
+
+    return 32;
+}
+
+let getBtnSize = (width) =>
+{
+    if(width >= 1080)
+        return 96;
+    if(width >= 720)
+        return 72;
+    if(width >= 360)
+        return 48;
+
+    return 40;
+}
+
 const x0 = 0.25;
 const cooldown = 12;
 let getLyapunovExp = (sum, t) => t ? sum / t : 0;
@@ -78,7 +104,7 @@ let time = 0;
 let x = x0;
 let lyapunovExpSum = 0;
 let lyapunovExp = getLyapunovExp(lyapunovExpSum, turns);
-let autoSeed = -1;
+let autoSeed = 0;
 let autoSeedActive = false;
 
 const c1Cost = new FirstFreeCost(new ExponentialCost(10, 0.5));
@@ -125,11 +151,12 @@ const getr = (level) => level >= 45 ? 4 :
 3.8, 3.82,... (10)
 */
 
-const tauRate = 1 / 5;
-const pubExp = 0.18 * 5;
-var getPublicationMultiplier = (tau) => tau.pow(pubExp);
+const tauRate = 0.75;
+const pubExp = 0.18 / tauRate;
+const pubDiv = 2;
+var getPublicationMultiplier = (tau) => tau.pow(pubExp) / pubDiv;
 var getPublicationMultiplierFormula = (symbol) =>
-`{${symbol}}^{${pubExp.toFixed(1)}}`;
+`\\frac{{${symbol}}^{${pubExp.toFixed(1)}}}{${pubDiv}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15, 1e270]);
@@ -347,7 +374,7 @@ var tick = (elapsedTime, multiplier) =>
     while(time >= cooldown)
     {
         ++turns;
-        if(autoSeedActive && turns === autoSeed + 1)
+        if(autoSeedActive && turns >= autoSeed + 1)
             reseed.buy(1);
         else
         {
@@ -558,18 +585,13 @@ let createAutoSeedMenu = () =>
     });
     let ASSwitch = ui.createSwitch
     ({
-        isToggled: autoSeedActive,
         column: 2,
         // horizontalOptions: LayoutOptions.END,
-        onTouched: (e) =>
+        isToggled: autoSeedActive,
+        onToggled: () =>
         {
-            if(e.type == TouchType.SHORTPRESS_RELEASED ||
-            e.type == TouchType.LONGPRESS_RELEASED)
-            {
-                Sound.playClick();
-                autoSeedActive = !autoSeedActive;
-                ASSwitch.isToggled = autoSeedActive;
-            }
+            Sound.playClick();
+            autoSeedActive = ASSwitch.isToggled;
         }
     });
 
@@ -579,6 +601,7 @@ let createAutoSeedMenu = () =>
         title: getLoc('autoSeed'),
         content: ui.createGrid
         ({
+            opacity: () => autoSeedActive ? 1 : 0.4,
             columnDefinitions: ['3*', '4*', '1*'],
             children:
             [
@@ -588,7 +611,7 @@ let createAutoSeedMenu = () =>
                     // horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER,
                     text: Localization.format(getLoc('autoSeedLabel'),
-                    Utils.getMath('t='))
+                    Utils.getMath('t\\ge'))
                 }),
                 tmpGrid,
                 ASSwitch
@@ -635,6 +658,9 @@ var getInternalState = () => JSON.stringify
 var setInternalState = (stateStr) =>
 {
     let state = JSON.parse(stateStr);
+
+    if(!stateStr)
+        return;
     let v = state.version ?? version;
     pubTime = state.pubTime ?? pubTime;
     turns = state.turns ?? turns;
@@ -658,7 +684,7 @@ let interpolate = (t) => {
     return v1 * (1 - t) + v2 * t;
 };
 
-var get2DGraphValue = () => x + 0.5;
+var get2DGraphValue = () => x;
 // {
 //     let rTerm = getr(r.level);
 //     let x1 = rTerm * x * (1 - x);
