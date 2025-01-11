@@ -30,9 +30,9 @@ The variable r represents the population's reproduction rate, but as the ` +
     return descs[language] ?? descs.en;
 }
 var authors = 'propfeds';
-var version = 0.11;
+var version = 0.12;
 
-const versionName = 'v0.1.1';
+const versionName = 'v0.1.2';
 const workInProgress = false;
 
 const locStrings =
@@ -156,7 +156,7 @@ const pubExp = 0.18 / tauRate;
 const pubDiv = 2;
 var getPublicationMultiplier = (tau) => tau.pow(pubExp) / pubDiv;
 var getPublicationMultiplierFormula = (symbol) =>
-`\\frac{{${symbol}}^{${pubExp.toFixed(1)}}}{${pubDiv}}`;
+`\\frac{{${symbol}}^{${pubExp.toFixed(2)}}}{${pubDiv}}`;
 
 let bigNumArray = (array) => array.map(x => BigNumber.from(x));
 const permaCosts = bigNumArray([1e6, 1e12, 1e18, 1e15, 1e270]);
