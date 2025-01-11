@@ -70,6 +70,30 @@ let getLoc = (name, lang = menuLang) =>
     return `String missing: ${lang}.${name}`;
 }
 
+let getSmallBtnSize = (width) =>
+{
+    if(width >= 1080)
+        return 80;
+    if(width >= 720)
+        return 60;
+    if(width >= 360)
+        return 40;
+
+    return 32;
+}
+
+let getBtnSize = (width) =>
+{
+    if(width >= 1080)
+        return 96;
+    if(width >= 720)
+        return 72;
+    if(width >= 360)
+        return 48;
+
+    return 40;
+}
+
 const x0 = 0.25;
 const cooldown = 12;
 let getLyapunovExp = (sum, t) => t ? sum / t : 0;
@@ -587,7 +611,7 @@ let createAutoSeedMenu = () =>
                     // horizontalTextAlignment: TextAlignment.CENTER,
                     verticalTextAlignment: TextAlignment.CENTER,
                     text: Localization.format(getLoc('autoSeedLabel'),
-                    Utils.getMath('t='))
+                    Utils.getMath('t\\ge'))
                 }),
                 tmpGrid,
                 ASSwitch
