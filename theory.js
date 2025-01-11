@@ -30,9 +30,9 @@ The variable r represents the population's reproduction rate, but as the ` +
     return descs[language] ?? descs.en;
 }
 var authors = 'propfeds';
-var version = 0.1;
+var version = 0.11;
 
-const versionName = 'v0.1';
+const versionName = 'v0.1.1';
 const workInProgress = false;
 
 const locStrings =
@@ -350,7 +350,7 @@ var tick = (elapsedTime, multiplier) =>
     while(time >= cooldown)
     {
         ++turns;
-        if(autoSeedActive && turns === autoSeed + 1)
+        if(autoSeedActive && turns >= autoSeed + 1)
             reseed.buy(1);
         else
         {
